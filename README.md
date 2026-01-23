@@ -162,20 +162,5 @@
 - Any beginner who is interested in learning kubernetes on cloud using AWS EKS. 
 - Any beginner who is interested in learning Kubernetes DevOps and Microservices deployments on Kubernetes
 
-## Each of my courses come with
-- Amazing Hands-on Step By Step Learning Experiences
-- Real Implementation Experience
-- Friendly Support in the Q&A section
-- 30 Day "No Questions Asked" Money Back Guarantee!
 
-## My Other AWS Courses
-- [Udemy Enroll](https://github.com/stacksimplify/udemy-enroll)
-
-## Stack Simplify Udemy Profile
-- [Udemy Profile](https://www.udemy.com/user/kalyan-reddy-9/)
-
-
-# Azure Kubernetes Service with Azure DevOps and Terraform 
-
-[![Image](https://stacksimplify.com/course-images/azure-kubernetes-service-with-azure-devops-and-terraform.png "Azure Kubernetes Service with Azure DevOps and Terraform")](https://www.udemy.com/course/azure-kubernetes-service-with-azure-devops-and-terraform/?referralCode=2499BF7F5FAAA506ED42)
 
