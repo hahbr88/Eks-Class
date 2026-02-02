@@ -269,8 +269,77 @@ which eksctl && eksctl version
 ```
 ---
 
-### EKS Guide URL
+### 구성도 EKS Guide URL
+
+https://docs.aws.amazon.com/eks/
+
+![image](./image2.png)
 
 https://aws.amazon.com/blogs/containers/saas-deployment-architectures-with-amazon-eks/
 
 https://aws.amazon.com/blogs/architecture/field-notes-managing-an-amazon-eks-cluster-using-aws-cdk-and-cloud-resource-property-manager/
+
+
+### 전체 플로우
+```
+flowchart TD
+  %% =========================
+  %% EKS 설치 Flow (eksctl 기준)
+  %% =========================
+
+  A["사전 준비"] --> A1["로컬 도구 설치/확인<br/>- awscli v2<br/>- eksctl<br/>- kubectl<br/>- (선택) helm"]
+  A1 --> A2["AWS 인증/권한 확인<br/>- aws configure 또는 SSO/AssumeRole<br/>- sts get-caller-identity"]
+  A2 --> A3["리전/쿼터/이름 규칙 결정<br/>- ap-northeast-2 등<br/>- 클러스터명/노드그룹명"]
+
+  A3 --> B{"VPC를 새로 만들까?"}
+  B -- 예(기본) --> B1["eksctl이 VPC 자동 생성<br/>Public/Private Subnet + NAT 포함"]
+  B -- 아니오(기존) --> B2["기존 VPC 사용 준비<br/>- subnet IDs 준비<br/>- 태그 확인: kubernetes.io/cluster/CLUSTER, role/elb, role/internal-elb"]
+  B1 --> C
+  B2 --> C
+
+  C{"클러스터 정의 방식?"}
+  C -- CLI로 빠르게 --> C1["eksctl create cluster<br/>--name CLUSTER<br/>--region REGION<br/>--version X.Y<br/>--managed"]
+  C -- YAML로 표준화 --> C2["cluster.yaml 작성<br/>- metadata(name/region/version)<br/>- vpc 설정(자동/기존)<br/>- managedNodeGroups 등"]
+  C1 --> D
+  C2 --> D1["eksctl create cluster -f cluster.yaml"]
+  D1 --> D
+
+  D["Control Plane 생성 완료"] --> E["kubeconfig 설정<br/>aws eks update-kubeconfig<br/>또는 eksctl utils write-kubeconfig"]
+  E --> F["기본 점검<br/>kubectl get nodes<br/>kubectl get pods -A"]
+
+  F --> G{"IRSA(서비스어카운트 IAM) 쓸까?"}
+  G -- 예(권장) --> G1["OIDC Provider 연결<br/>eksctl utils associate-iam-oidc-provider<br/>--cluster CLUSTER --region REGION --approve"]
+  G -- 아니오 --> H
+
+  G1 --> H["노드/컴퓨팅 구성"]
+  H --> H1{"노드 방식?"}
+  H1 -- Managed NodeGroup(권장) --> H2["노드그룹 생성/추가<br/>eksctl create nodegroup<br/>--cluster CLUSTER --name NG<br/>--node-type t3.large<br/>--nodes 2 --nodes-min 2 --nodes-max 5<br/>--managed"]
+  H1 -- Fargate(선택) --> H3["Fargate Profile 생성<br/>eksctl create fargateprofile<br/>--cluster CLUSTER --name FP<br/>--namespace NS"]
+  H2 --> I
+  H3 --> I
+
+  I["필수 애드온 확인/정리"] --> I1["AWS-managed add-on 권장 흐름<br/>- vpc-cni<br/>- coredns<br/>- kube-proxy"]
+  I1 --> I2["eksctl create addon / update addon (선택)<br/>또는 콘솔에서 Add-ons 관리"]
+
+  I2 --> J{"스토리지 필요?"}
+  J -- EBS 필요 --> J1["EBS CSI Driver 설치(권장: IRSA 사용)<br/>1) (IRSA) IAM Role/Policy 준비<br/>2) eksctl create addon aws-ebs-csi-driver<br/>3) StorageClass/PVC 테스트"]
+  J -- 불필요 --> K
+  J1 --> K
+
+  K{"Ingress/LB 필요?"}
+  K -- ALB(권장) --> K1["AWS Load Balancer Controller<br/>- (필수) IRSA Role/Policy<br/>- helm repo add / helm install<br/>- IngressClass/annotations 구성"]
+  K -- NGINX 등 --> K2["NGINX Ingress Controller(선택)<br/>- helm install ingress-nginx<br/>- Service 타입(LB) 확인"]
+  K1 --> L
+  K2 --> L
+
+  L["인증/권한 운영 설정(권장)"] --> L1["aws-auth(클러스터 접근자) 관리<br/>- IAM Role/User 매핑<br/>- 팀별 RBAC(Role/RoleBinding)"]
+  L1 --> M["검증 단계"]
+  M --> M1["샘플 앱 배포<br/>Deployment + Service + Ingress"]
+  M1 --> M2["네트워크/DNS 확인<br/>- nslookup/curl 테스트<br/>- CoreDNS 정상"]
+  M2 --> M3["오토스케일(선택)<br/>- metrics-server 설치/확인<br/>- HPA 테스트"]
+  M3 --> N["운영 준비<br/>- 업그레이드 전략(버전/노드 롤링)<br/>- 로깅/모니터링(CloudWatch 등)<br/>- CI/CD 연동"]
+  ```
+
+  ![image](./image.png)
+
+  

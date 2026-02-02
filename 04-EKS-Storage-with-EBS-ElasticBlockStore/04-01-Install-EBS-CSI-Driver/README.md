@@ -386,6 +386,7 @@ kubectl -n kube-system get pods -l app=ebs-csi-node
 
 
 # ebs-csi 파드 실행 확인
+```
 kubectl get pods -n kube-system
 ```
 ---
@@ -405,3 +406,6 @@ kube-proxy-fsz28                      1/1     Running   0          13h
 metrics-server-6d994b8776-6gdx6       1/1     Running   0          13h
 metrics-server-6d994b8776-7nzkr       1/1     Running   0          13h
 ```
+
+
+
