@@ -2,7 +2,40 @@
 title: AWS Load Balancer Controller 설치(AWS EKS)
 description: AWS EKS에서 Ingress 구현을 위한 AWS Load Balancer Controller 설치 학습
 ---
- 
+
+```
+EKS에서는 Traefik “대신” ALB(Ingress)만 쓰는 게 정답이라기보다, 보통 외부 HTTP/HTTPS 진입은 AWS Load Balancer Controller로 ALB를 붙이는 방식을 가장 많이 씁니다. AWS도 기본적으로 AWS Load Balancer Controller 설치를 권장하고, 설치하지 않으면(레거시 클라우드 프로바이더) Classic Load Balancer(CLB) 로 기본 생성될 수 있으니 피하라고 안내합니다.
+
+왜 EKS에서 ALB(Ingress)를 많이 쓰나?
+
+AWS 네이티브 통합: ACM(인증서), WAF, 보안그룹, 타겟그룹, 헬스체크 등 AWS 기능을 그대로 활용하기 쉬움
+
+K8s Ingress → ALB 자동 프로비저닝: Ingress/Service 리소스를 보고 컨트롤러가 ALB/NLB를 만들어 줌
+
+표준 아키텍처: “EKS에서 외부 트래픽 라우팅은 AWS Load Balancer Controller로”라는 흐름이 문서/가이드에 명확함
+
+그럼 Traefik은 EKS에서 안 쓰나?
+
+아니요, Traefik도 EKS에서 충분히 사용합니다. 다만 패턴이 보통 둘 중 하나예요:
+
+ALB만으로 끝(AWS Load Balancer Controller가 Ingress를 처리)
+
+간단한 웹 서비스, AWS 기능(WAF/ACM) 적극 활용, 운영 표준화에 유리
+
+앞단은 ALB/NLB, 클러스터 안쪽 라우팅은 Traefik
+
+멀티테넌시/세밀한 라우팅 정책, Traefik의 CRD/Gateway API, 플러그인/미들웨어 등을 쓰고 싶을 때
+
+실제로 “EKS에서 Traefik을 Ingress Controller로 구성”하는 가이드/사례도 있습니다.
+
+선택 기준(실무 기준으로 딱 정리)
+
+HTTP/HTTPS + 경로/호스트 기반 라우팅 + AWS WAF/ACM → ALB Ingress(AWS Load Balancer Controller) 가 “가장 흔한 선택”
+
+TCP/UDP(소켓, 게임, DB 프록시 등) → 보통 NLB(Service type LoadBalancer) 쪽
+
+클러스터 내부에서 API Gateway/미들웨어 기능을 풍부하게(Traefik 기능을 적극 사용) → (ALB/NLB) + Traefik 조합 고려
+```
 
 ## 단계-00: 소개
 1. IAM 정책을 생성하고 Policy ARN을 기록합니다.
