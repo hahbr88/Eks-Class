@@ -378,14 +378,13 @@ sed -i '/nodeAllocatableUpdatePeriodSeconds/d' ebs.yaml
 # 3) 다시 적용
 ```
 kubectl apply -f ebs.yaml
-```
-
 kubectl get csidriver | grep ebs
 kubectl -n kube-system get pods -l app=ebs-csi-controller
 kubectl -n kube-system get pods -l app=ebs-csi-node
-
+```
 
 # ebs-csi 파드 실행 확인
+
 ```
 kubectl get pods -n kube-system
 ```
