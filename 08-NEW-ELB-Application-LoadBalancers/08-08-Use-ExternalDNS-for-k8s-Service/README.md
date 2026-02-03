@@ -1,11 +1,11 @@
 ---
 title: AWS Load Balancer Controller - External DNS & Service
-description: Learn AWS Load Balancer Controller - External DNS & Kubernetes Service
+description: AWS Load Balancer Controller - External DNS & Kubernetes Service 학습
 ---
 
-## Step-01: Introduction
-- We will create a Kubernetes Service of `type: LoadBalancer`
-- We will annotate that Service with external DNS hostname `external-dns.alpha.kubernetes.io/hostname: externaldns-k8s-service-demo101.stacksimplify.com` which will register the DNS in Route53 for that respective load balancer
+## 단계-01: 소개
+- `type: LoadBalancer`의 Kubernetes Service를 생성합니다.
+- Service에 `external-dns.alpha.kubernetes.io/hostname: externaldns-k8s-service-demo101.stacksimplify.com` 애노테이션을 추가해 해당 로드 밸런서 DNS를 Route53에 등록합니다.
 
 ## Step-02: 02-Nginx-App1-LoadBalancer-Service.yml
 ```yaml
@@ -25,58 +25,58 @@ spec:
     - port: 80
       targetPort: 80  
 ```
-## Step-03: Deploy & Verify
+## 단계-03: 배포 및 확인
 
-### Deploy & Verify
+### 배포 및 확인
 ```t
-# Deploy kube-manifests
+# kube-manifests 배포
 kubectl apply -f kube-manifests/
 
-# Verify Apps
+# 앱 확인
 kubectl get deploy
 kubectl get pods
 
-# Verify Service
+# 서비스 확인
 kubectl get svc
 ```
-### Verify Load Balancer 
-- Go to EC2 -> Load Balancers -> Verify Load Balancer Settings
+### Load Balancer 확인
+- EC2 -> Load Balancers로 이동해 로드 밸런서 설정 확인
 
-### Verify External DNS Log
+### External DNS 로그 확인
 ```t
-# Verify External DNS logs
+# External DNS 로그 확인
 kubectl logs -f $(kubectl get po | egrep -o 'external-dns[A-Za-z0-9-]+')
 ```
-### Verify Route53
-- Go to Services -> Route53
-- You should see **Record Sets** added for `externaldns-k8s-service-demo101.stacksimplify.com`
+### Route53 확인
+- Services -> Route53로 이동
+- `externaldns-k8s-service-demo101.stacksimplify.com`에 대한 **Record Sets**가 추가되었는지 확인
 
 
-## Step-04: Access Application using newly registered DNS Name
-### Perform nslookup tests before accessing Application
-- Test if our new DNS entries registered and resolving to an IP Address
+## 단계-04: 새로 등록한 DNS 이름으로 애플리케이션 접속
+### 접속 전에 nslookup 테스트 수행
+- 새 DNS 엔트리가 등록되어 IP 주소로 해석되는지 확인합니다.
 ```t
-# nslookup commands
+# nslookup 명령
 nslookup externaldns-k8s-service-demo101.stacksimplify.com
 ```
-### Access Application using DNS domain
+### DNS 도메인으로 애플리케이션 접속
 ```t
 # HTTP URL
 http://externaldns-k8s-service-demo101.stacksimplify.com/app1/index.html
 ```
 
-## Step-05: Clean Up
+## 단계-05: 정리
 ```t
-# Delete Manifests
+# 매니페스트 삭제
 kubectl delete -f kube-manifests/
 
-## Verify Route53 Record Set to ensure our DNS records got deleted
-- Go to Route53 -> Hosted Zones -> Records 
-- The below records should be deleted automatically
+## Route53 Record Set 확인( DNS 레코드 삭제 확인 )
+- Route53 -> Hosted Zones -> Records로 이동
+- 아래 레코드가 자동으로 삭제되어야 합니다.
   - externaldns-k8s-service-demo101.stacksimplify.com
 ```
 
 
-## References
+## 참고 자료
 - https://github.com/kubernetes-sigs/external-dns/blob/master/docs/tutorials/alb-ingress.md
 - https://github.com/kubernetes-sigs/external-dns/blob/master/docs/tutorials/aws.md

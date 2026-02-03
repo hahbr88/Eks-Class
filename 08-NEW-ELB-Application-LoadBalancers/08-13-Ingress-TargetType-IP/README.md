@@ -1,85 +1,85 @@
 ---
-title: AWS Load Balancer Controller - Ingress Target Type IP
-description: Learn AWS Load Balancer Controller - Ingress Target Type IP
+title: AWS Load Balancer Controller - Ingress 타깃 타입 IP
+description: AWS Load Balancer Controller - Ingress 타깃 타입 IP 학습
 ---
 
-## Step-01: Introduction
-- `alb.ingress.kubernetes.io/target-type` specifies how to route traffic to pods. 
-- You can choose between `instance` and `ip`
-- **Instance Mode:** `instance mode` will route traffic to all ec2 instances within cluster on NodePort opened for your service.
-- **IP Mode:** `ip mode` is required for sticky sessions to work with Application Load Balancers.
+## 단계-01: 소개
+- `alb.ingress.kubernetes.io/target-type`는 파드로 트래픽을 라우팅하는 방식을 지정합니다.
+- `instance`와 `ip` 중에서 선택할 수 있습니다.
+- **Instance 모드:** 서비스의 NodePort를 통해 클러스터 내 모든 EC2 인스턴스로 트래픽을 라우팅합니다.
+- **IP 모드:** ALB에서 스티키 세션을 사용하려면 `ip` 모드가 필요합니다.
 
 
-## Step-02: Ingress Manifest - Add target-type
-- **File Name:** 04-ALB-Ingress-target-type-ip.yml
+## 단계-02: Ingress 매니페스트 - target-type 추가
+- **파일 이름:** 04-ALB-Ingress-target-type-ip.yml
 ```yaml
     # Target Type: IP
     alb.ingress.kubernetes.io/target-type: ip   
 ```
 
-## Step-03: Deploy all Application Kubernetes Manifests and Verify
+## 단계-03: 애플리케이션 Kubernetes 매니페스트 배포 및 확인
 ```t
-# Deploy kube-manifests
+# kube-manifests 배포
 kubectl apply -f kube-manifests/
 
-# Verify Ingress Resource
+# Ingress 리소스 확인
 kubectl get ingress
 
-# Verify Apps
+# 앱 확인
 kubectl get deploy
 kubectl get pods
 
-# Verify NodePort Services
+# NodePort 서비스 확인
 kubectl get svc
 ```
-### Verify Load Balancer & Target Groups
-- Load Balancer -  Listeneres (Verify both 80 & 443) 
-- Load Balancer - Rules (Verify both 80 & 443 listeners) 
-- Target Groups - Group Details (Verify Health check path)
-- Target Groups - Targets (Verify all 3 targets are healthy)
-- **PRIMARILY VERIFY - TARGET GROUPS which contain thePOD IPs instead of WORKER NODE IP with NODE PORTS**
+### Load Balancer 및 Target Groups 확인
+- Load Balancer - Listeners(80과 443 확인)
+- Load Balancer - Rules(80과 443 리스너 모두 확인)
+- Target Groups - Group Details(헬스 체크 경로 확인)
+- Target Groups - Targets(3개 대상 모두 정상인지 확인)
+- **중점 확인: NodePort 워커 노드 IP가 아니라 파드 IP가 Target Group에 포함되어야 합니다.**
 ```t
-# List Pods and their IPs
+# 파드 및 IP 목록
 kubectl get pods -o wide
 ```
 
-### Verify External DNS Log
+### External DNS 로그 확인
 ```t
-# Verify External DNS logs
+# External DNS 로그 확인
 kubectl logs -f $(kubectl get po | egrep -o 'external-dns[A-Za-z0-9-]+')
 ```
-### Verify Route53
-- Go to Services -> Route53
-- You should see **Record Sets** added for 
+### Route53 확인
+- Services -> Route53로 이동
+- 다음 **Record Sets**가 추가되었는지 확인
   - target-type-ip-501.stacksimplify.com 
 
 
-## Step-04: Access Application using newly registered DNS Name
-### Perform nslookup tests before accessing Application
-- Test if our new DNS entries registered and resolving to an IP Address
+## 단계-04: 새로 등록한 DNS 이름으로 애플리케이션 접속
+### 접속 전에 nslookup 테스트 수행
+- 새 DNS 엔트리가 등록되어 IP 주소로 해석되는지 확인합니다.
 ```t
-# nslookup commands
+# nslookup 명령
 nslookup target-type-ip-501.stacksimplify.com 
 ```
-### Access Application using DNS domain
+### DNS 도메인으로 애플리케이션 접속
 ```t
-# Access App1
+# App1 접속
 http://target-type-ip-501.stacksimplify.com /app1/index.html
 
-# Access App2
+# App2 접속
 http://target-type-ip-501.stacksimplify.com /app2/index.html
 
-# Access Default App (App3)
+# 기본 앱(App3) 접속
 http://target-type-ip-501.stacksimplify.com 
 ```
 
-## Step-05: Clean Up
+## 단계-05: 정리
 ```t
-# Delete Manifests
+# 매니페스트 삭제
 kubectl delete -f kube-manifests/
 
-## Verify Route53 Record Set to ensure our DNS records got deleted
-- Go to Route53 -> Hosted Zones -> Records 
-- The below records should be deleted automatically
+## Route53 Record Set 확인( DNS 레코드 삭제 확인 )
+- Route53 -> Hosted Zones -> Records로 이동
+- 아래 레코드가 자동으로 삭제되어야 합니다.
   - target-type-ip-501.stacksimplify.com 
 ```

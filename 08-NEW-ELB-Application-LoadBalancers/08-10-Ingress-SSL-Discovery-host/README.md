@@ -1,15 +1,15 @@
 ---
-title: AWS Load Balancer Controller - Ingress SSL Discovery Host
-description: Learn AWS Load Balancer Controller - Ingress SSL Discovery Host
+title: AWS Load Balancer Controller - Ingress SSL 호스트 디스커버리
+description: AWS Load Balancer Controller - Ingress SSL 호스트 디스커버리 학습
 ---
 
-## Step-01: Introduction
-- Automatically disover SSL Certificate from AWS Certificate Manager Service using `spec.rules.host`
-- In this approach, with the specified domain name if we have the SSL Certificate created in AWS Certificate Manager, that certificate will be automatically detected and associated to Application Load Balancer.
-- We don't need to get the SSL Certificate ARN and update it in Kubernetes Ingress Manifest
-- Discovers via Ingress rule host and attaches a cert for `app102.stacksimplify.com` or `*.stacksimplify.com` to the ALB
+## 단계-01: 소개
+- `spec.rules.host`를 사용해 AWS Certificate Manager에서 SSL 인증서를 자동으로 탐지합니다.
+- 지정한 도메인 이름에 대해 ACM에 SSL 인증서가 있으면 해당 인증서가 자동으로 감지되어 ALB에 연결됩니다.
+- SSL 인증서 ARN을 가져와 Kubernetes Ingress 매니페스트에 넣을 필요가 없습니다.
+- Ingress 규칙의 host를 통해 `app102.stacksimplify.com` 또는 `*.stacksimplify.com` 인증서를 ALB에 자동으로 연결합니다.
 
-## Step-02: Discover via Ingress "spec.rules.host"
+## 단계-02: Ingress "spec.rules.host"로 인증서 탐지
 ```yaml
 # Annotations Reference: https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress/annotations/
 apiVersion: networking.k8s.io/v1
@@ -68,81 +68,81 @@ spec:
                 port: 
                   number: 80
 
-# Important Note-1: In path based routing order is very important, if we are going to use  "/*", try to use it at the end of all rules.                                        
+# 중요-1: 경로 기반 라우팅에서는 순서가 매우 중요합니다. "/*"를 사용할 경우 모든 규칙의 마지막에 배치하세요.
                         
-# 1. If  "spec.ingressClassName: my-aws-ingress-class" not specified, will reference default ingress class on this kubernetes cluster
-# 2. Default Ingress class is nothing but for which ingress class we have the annotation `ingressclass.kubernetes.io/is-default-class: "true"`    
+# 1. "spec.ingressClassName: my-aws-ingress-class"가 지정되지 않으면 이 쿠버네티스 클러스터의 기본 ingress class를 참조합니다.
+# 2. 기본 Ingress class는 `ingressclass.kubernetes.io/is-default-class: "true"` 애노테이션이 있는 ingress class입니다.
 ```
 
 
-## Step-03: Deploy all Application Kubernetes Manifests and Verify
+## 단계-03: 애플리케이션 Kubernetes 매니페스트 배포 및 확인
 ```t
-# Deploy kube-manifests
+# kube-manifests 배포
 kubectl apply -f kube-manifests/
 
-# Verify Ingress Resource
+# Ingress 리소스 확인
 kubectl get ingress
 
-# Verify Apps
+# 앱 확인
 kubectl get deploy
 kubectl get pods
 
-# Verify NodePort Services
+# NodePort 서비스 확인
 kubectl get svc
 ```
-### Verify Load Balancer & Target Groups
-- Load Balancer -  Listeneres (Verify both 80 & 443) 
-- Load Balancer - Rules (Verify both 80 & 443 listeners) 
-- Target Groups - Group Details (Verify Health check path)
-- Target Groups - Targets (Verify all 3 targets are healthy)
-- **PRIMARILY VERIFY - CERTIFICATE ASSOCIATED TO APPLICATION LOAD BALANCER**
+### Load Balancer 및 Target Groups 확인
+- Load Balancer - Listeners(80과 443 확인)
+- Load Balancer - Rules(80과 443 리스너 모두 확인)
+- Target Groups - Group Details(헬스 체크 경로 확인)
+- Target Groups - Targets(3개 대상 모두 정상인지 확인)
+- **중점 확인: ALB에 인증서가 연결되었는지 확인**
 
-### Verify External DNS Log
+### External DNS 로그 확인
 ```t
-# Verify External DNS logs
+# External DNS 로그 확인
 kubectl logs -f $(kubectl get po | egrep -o 'external-dns[A-Za-z0-9-]+')
 ```
-### Verify Route53
-- Go to Services -> Route53
-- You should see **Record Sets** added for 
+### Route53 확인
+- Services -> Route53로 이동
+- 다음 **Record Sets**가 추가되었는지 확인
   - default102.stacksimplify.com
   - app102.stacksimplify.com
   - app202.stacksimplify.com
 
-## Step-04: Access Application using newly registered DNS Name
-### Perform nslookup tests before accessing Application
-- Test if our new DNS entries registered and resolving to an IP Address
+## 단계-04: 새로 등록한 DNS 이름으로 애플리케이션 접속
+### 접속 전에 nslookup 테스트 수행
+- 새 DNS 엔트리가 등록되어 IP 주소로 해석되는지 확인합니다.
 ```t
-# nslookup commands
+# nslookup 명령
 nslookup default102.stacksimplify.com
 nslookup app102.stacksimplify.com
 nslookup app202.stacksimplify.com
 ```
-### Positive Case: Access Application using DNS domain
+### 정상 케이스: DNS 도메인으로 애플리케이션 접속
 ```t
-# Access App1
+# App1 접속
 http://app102.stacksimplify.com/app1/index.html
 
-# Access App2
+# App2 접속
 http://app202.stacksimplify.com/app2/index.html
 
-# Access Default App (App3)
+# 기본 앱(App3) 접속
 http://default102.stacksimplify.com
 ```
 
-## Step-05: Clean Up
+## 단계-05: 정리
 ```t
-# Delete Manifests
+# 매니페스트 삭제
 kubectl delete -f kube-manifests/
 
-## Verify Route53 Record Set to ensure our DNS records got deleted
-- Go to Route53 -> Hosted Zones -> Records 
-- The below records should be deleted automatically
+## Route53 Record Set 확인( DNS 레코드 삭제 확인 )
+- Route53 -> Hosted Zones -> Records로 이동
+- 아래 레코드가 자동으로 삭제되어야 합니다.
   - default102.stacksimplify.com
   - app102.stacksimplify.com
   - app202.stacksimplify.com
 ```
 
 
-## References
+## 참고 자료
 - https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/ingress/cert_discovery/

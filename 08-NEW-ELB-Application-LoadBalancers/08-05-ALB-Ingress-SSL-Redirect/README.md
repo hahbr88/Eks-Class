@@ -1,64 +1,63 @@
 ---
-title: AWS Load Balancer - Ingress SSL HTTP to HTTPS Redirect
-description: Learn AWS Load Balancer - Ingress SSL HTTP to HTTPS Redirect
+title: AWS Load Balancer - Ingress SSL HTTP에서 HTTPS 리디렉션
+description: AWS Load Balancer - Ingress SSL HTTP에서 HTTPS 리디렉션 학습
 ---
 
-## Step-01: Add annotations related to SSL Redirect
-- **File Name:** 04-ALB-Ingress-SSL-Redirect.yml
-- Redirect from HTTP to HTTPS
+## 단계-01: SSL 리디렉션 관련 애노테이션 추가
+- **파일 이름:** 04-ALB-Ingress-SSL-Redirect.yml
+- HTTP에서 HTTPS로 리디렉션
 ```yaml
     # SSL Redirect Setting
     alb.ingress.kubernetes.io/ssl-redirect: '443'   
 ```
 
-## Step-02: Deploy all manifests and test
+## 단계-02: 모든 매니페스트 배포 및 테스트
 
-### Deploy and Verify
+### 배포 및 확인
 ```t
-# Deploy kube-manifests
+# kube-manifests 배포
 kubectl apply -f kube-manifests/
 
-# Verify Ingress Resource
+# Ingress 리소스 확인
 kubectl get ingress
 
-# Verify Apps
+# 앱 확인
 kubectl get deploy
 kubectl get pods
 
-# Verify NodePort Services
+# NodePort 서비스 확인
 kubectl get svc
 ```
-### Verify Load Balancer & Target Groups
-- Load Balancer -  Listeneres (Verify both 80 & 443) 
-- Load Balancer - Rules (Verify both 80 & 443 listeners) 
-- Target Groups - Group Details (Verify Health check path)
-- Target Groups - Targets (Verify all 3 targets are healthy)
+### Load Balancer 및 Target Groups 확인
+- Load Balancer - Listeners(80과 443 확인)
+- Load Balancer - Rules(80과 443 리스너 모두 확인)
+- Target Groups - Group Details(헬스 체크 경로 확인)
+- Target Groups - Targets(3개 대상 모두 정상인지 확인)
  
-## Step-03: Access Application using newly registered DNS Name
-- **Access Application**
+## 단계-03: 새로 등록한 DNS 이름으로 애플리케이션 접속
+- **애플리케이션 접속**
 ```t
-# HTTP URLs (Should Redirect to HTTPS)
+# HTTP URL(HTTPS로 리디렉션되어야 함)
 http://ssldemo101.stacksimplify.com/app1/index.html
 http://ssldemo101.stacksimplify.com/app2/index.html
 http://ssldemo101.stacksimplify.com/
 
-# HTTPS URLs
+# HTTPS URL
 https://ssldemo101.stacksimplify.com/app1/index.html
 https://ssldemo101.stacksimplify.com/app2/index.html
 https://ssldemo101.stacksimplify.com/
 ```
 
-## Step-04: Clean Up
+## 단계-04: 정리
 ```t
-# Delete Manifests
+# 매니페스트 삭제
 kubectl delete -f kube-manifests/
 
-## Delete Route53 Record Set
-- Delete Route53 Record we created (ssldemo101.stacksimplify.com)
+## Route53 레코드 세트 삭제
+- 생성한 Route53 레코드 삭제(ssldemo101.stacksimplify.com)
 ```
 
-## Annotation Reference
+## 애노테이션 참고 자료
 - [AWS Load Balancer Controller Annotation Reference](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/ingress/annotations/)
-
 
 

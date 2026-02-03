@@ -1,36 +1,36 @@
 ---
-title: AWS Load Balancer Controller Install on AWS EKS
-description: Learn to install AWS Load Balancer Controller for Ingress Implementation on AWS EKS
+title: AWS Load Balancer Controller 설치(AWS EKS)
+description: AWS EKS에서 Ingress 구현을 위한 AWS Load Balancer Controller 설치 학습
 ---
  
 
-## Step-00: Introduction
-1. Create IAM Policy and make a note of Policy ARN
-2. Create IAM Role and k8s Service Account and bound them together
-3. Install AWS Load Balancer Controller using HELM3 CLI
-4. Understand IngressClass Concept and create a default Ingress Class 
+## 단계-00: 소개
+1. IAM 정책을 생성하고 Policy ARN을 기록합니다.
+2. IAM Role과 K8s Service Account를 생성해 서로 바인딩합니다.
+3. HELM3 CLI로 AWS Load Balancer Controller를 설치합니다.
+4. IngressClass 개념을 이해하고 기본 Ingress Class를 생성합니다.
 
-## Step-01: Pre-requisites
-### Pre-requisite-1: eksctl & kubectl Command Line Utility
-- Should be the latest eksctl version
+## 단계-01: 사전 준비
+### 사전 준비-1: eksctl & kubectl CLI
+- 최신 eksctl 버전을 사용해야 합니다.
 ```t
-# Verify eksctl version
+# eksctl 버전 확인
 eksctl version
 
-# For installing or upgrading latest eksctl version
+# 최신 eksctl 설치 또는 업그레이드
 https://docs.aws.amazon.com/eks/latest/userguide/eksctl.html
 
-# Verify EKS Cluster version
+# EKS 클러스터 버전 확인
 kubectl version --short
 kubectl version
-Important Note: You must use a kubectl version that is within one minor version difference of your Amazon EKS cluster control plane. For example, a 1.20 kubectl client works with Kubernetes 1.19, 1.20 and 1.21 clusters.
+중요: kubectl 버전은 Amazon EKS 컨트롤 플레인의 마이너 버전 차이가 1 이하인 것을 사용해야 합니다. 예: kubectl 1.20 클라이언트는 Kubernetes 1.19, 1.20, 1.21 클러스터와 호환됩니다.
 
-# For installing kubectl cli
+# kubectl CLI 설치
 https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html
 ```
-### Pre-requisite-2: Create EKS Cluster and Worker Nodes (if not created)
+### 사전 준비-2: EKS 클러스터 및 워커 노드 생성(미생성 시)
 ```t
-# Create Cluster (Section-01-02)
+# 클러스터 생성(Section-01-02)
 eksctl create cluster --name=eksdemo1 \
                       --region=us-east-1 \
                       --zones=us-east-1a,us-east-1b \
@@ -38,22 +38,22 @@ eksctl create cluster --name=eksdemo1 \
                       --without-nodegroup 
 
 
-# Get List of clusters (Section-01-02)
+# 클러스터 목록 확인(Section-01-02)
 eksctl get cluster   
 
-# Template (Section-01-02)
+# 템플릿(Section-01-02)
 eksctl utils associate-iam-oidc-provider \
     --region region-code \
     --cluster <cluter-name> \
     --approve
 
-# Replace with region & cluster name (Section-01-02)
+# region 및 cluster name으로 교체(Section-01-02)
 eksctl utils associate-iam-oidc-provider \
     --region us-east-1 \
     --cluster eksdemo1 \
     --approve
 
-# Create EKS NodeGroup in VPC Private Subnets (Section-07-01)
+# VPC 프라이빗 서브넷에 EKS NodeGroup 생성(Section-07-01)
 eksctl create nodegroup --cluster=eksdemo1 \
                         --region=us-east-1 \
                         --name=eksdemo1-ng-private1 \
@@ -71,63 +71,63 @@ eksctl create nodegroup --cluster=eksdemo1 \
                         --alb-ingress-access \
                         --node-private-networking       
 ```
-### Pre-requisite-3:  Verify Cluster, Node Groups and configure kubectl cli if not configured
-1. EKS Cluster
-2. EKS Node Groups in Private Subnets
+### 사전 준비-3: 클러스터/노드 그룹 확인 및 kubectl 설정
+1. EKS 클러스터
+2. 프라이빗 서브넷의 EKS 노드 그룹
 ```t
-# Verfy EKS Cluster
+# EKS 클러스터 확인
 eksctl get cluster
 
-# Verify EKS Node Groups
+# EKS 노드 그룹 확인
 eksctl get nodegroup --cluster=eksdemo1
 
-# Verify if any IAM Service Accounts present in EKS Cluster
+# EKS 클러스터에 IAM Service Account 존재 여부 확인
 eksctl get iamserviceaccount --cluster=eksdemo1
-Observation:
-1. No k8s Service accounts as of now. 
+관찰 사항:
+1. 현재 k8s Service Account가 없습니다.
 
-# Configure kubeconfig for kubectl
+# kubectl용 kubeconfig 설정
 eksctl get cluster # TO GET CLUSTER NAME
 aws eks --region <region-code> update-kubeconfig --name <cluster_name>
 aws eks --region us-east-1 update-kubeconfig --name eksdemo1
 
-# Verify EKS Nodes in EKS Cluster using kubectl
+# kubectl로 EKS 노드 확인
 kubectl get nodes
 
-# Verify using AWS Management Console
-1. EKS EC2 Nodes (Verify Subnet in Networking Tab)
-2. EKS Cluster
+# AWS 관리 콘솔에서 확인
+1. EKS EC2 노드(네트워킹 탭에서 서브넷 확인)
+2. EKS 클러스터
 ```
 
-## Step-02: Create IAM Policy
-- Create IAM policy for the AWS Load Balancer Controller that allows it to make calls to AWS APIs on your behalf.
-- As on today `2.3.1` is the latest Load Balancer Controller
-- We will download always latest from main branch of Git Repo
-- [AWS Load Balancer Controller Main Git repo](https://github.com/kubernetes-sigs/aws-load-balancer-controller)
+## 단계-02: IAM 정책 생성
+- AWS Load Balancer Controller가 AWS API를 호출할 수 있도록 IAM 정책을 생성합니다.
+- 현재 `2.3.1`이 최신 Load Balancer Controller입니다.
+- Git 저장소의 main 브랜치에서 최신 버전을 항상 다운로드합니다.
+- [AWS Load Balancer Controller 메인 Git 저장소](https://github.com/kubernetes-sigs/aws-load-balancer-controller)
 ```t
-# Change Directroy
+# 디렉터리 이동
 cd 08-NEW-ELB-Application-LoadBalancers/
 cd 08-01-Load-Balancer-Controller-Install
 
-# Delete files before download (if any present)
+# 다운로드 전에 파일 삭제(있는 경우)
 rm iam_policy_latest.json
 
-# Download IAM Policy
-## Download latest
+# IAM 정책 다운로드
+## 최신 버전 다운로드
 curl -o iam_policy_latest.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/iam_policy.json
-## Verify latest
+## 최신 버전 확인
 ls -lrta 
 
-## Download specific version
+## 특정 버전 다운로드
 curl -o iam_policy_v2.3.1.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.3.1/docs/install/iam_policy.json
 
 
-# Create IAM Policy using policy downloaded 
+# 다운로드한 정책으로 IAM 정책 생성
 aws iam create-policy \
     --policy-name AWSLoadBalancerControllerIAMPolicy \
     --policy-document file://iam_policy_latest.json
 
-## Sample Output
+## 출력 예시
 Kalyans-MacBook-Pro:08-01-Load-Balancer-Controller-Install kdaida$ aws iam create-policy \
 >     --policy-name AWSLoadBalancerControllerIAMPolicy \
 >     --policy-document file://iam_policy_latest.json
@@ -147,30 +147,30 @@ Kalyans-MacBook-Pro:08-01-Load-Balancer-Controller-Install kdaida$ aws iam creat
 }
 Kalyans-MacBook-Pro:08-01-Load-Balancer-Controller-Install kdaida$ 
 ```
-- **Important Note:** If you view the policy in the AWS Management Console, you may see warnings for ELB. These can be safely ignored because some of the actions only exist for ELB v2. You do not see warnings for ELB v2.
+- **중요:** AWS 관리 콘솔에서 정책을 보면 ELB 관련 경고가 표시될 수 있습니다. 이는 일부 작업이 ELB v2에서만 존재하기 때문에 발생하며 무시해도 됩니다. ELB v2에는 경고가 나타나지 않습니다.
 
-### Make a note of Policy ARN    
-- Make a note of Policy ARN as we are going to use that in next step when creating IAM Role.
+### Policy ARN 기록
+- 다음 단계에서 IAM Role을 만들 때 사용하므로 Policy ARN을 기록합니다.
 ```t
-# Policy ARN 
+# Policy ARN
 Policy ARN:  arn:aws:iam::180789647333:policy/AWSLoadBalancerControllerIAMPolicy
 ```
 
 
-## Step-03: Create an IAM role for the AWS LoadBalancer Controller and attach the role to the Kubernetes service account 
-- Applicable only with `eksctl` managed clusters
-- This command will create an AWS IAM role 
-- This command also will create Kubernetes Service Account in k8s cluster
-- In addition, this command will bound IAM Role created and the Kubernetes service account created
-### Step-03-01: Create IAM Role using eksctl
+## 단계-03: AWS LoadBalancer Controller용 IAM Role 생성 및 Kubernetes Service Account에 연결
+- `eksctl`로 관리되는 클러스터에만 적용됩니다.
+- 이 명령은 AWS IAM Role을 생성합니다.
+- 또한 K8s 클러스터에 Kubernetes Service Account를 생성합니다.
+- 생성된 IAM Role과 Kubernetes Service Account를 바인딩합니다.
+### 단계-03-01: eksctl로 IAM Role 생성
 ```t
-# Verify if any existing service account
+# 기존 서비스 계정 확인
 kubectl get sa -n kube-system
 kubectl get sa aws-load-balancer-controller -n kube-system
-Obseravation:
-1. Nothing with name "aws-load-balancer-controller" should exist
+관찰 사항:
+1. "aws-load-balancer-controller" 이름의 Service Account가 없어야 합니다.
 
-# Template
+# 템플릿
 eksctl create iamserviceaccount \
   --cluster=my_cluster \
   --namespace=kube-system \
@@ -180,7 +180,7 @@ eksctl create iamserviceaccount \
   --approve
 
 
-# Replaced name, cluster and policy arn (Policy arn we took note in step-02)
+# name, cluster, policy arn을 실제 값으로 교체(단계-02에서 기록한 Policy ARN 사용)
 eksctl create iamserviceaccount \
   --cluster=eksdemo1 \
   --namespace=kube-system \
@@ -189,9 +189,9 @@ eksctl create iamserviceaccount \
   --override-existing-serviceaccounts \
   --approve
 ```
-- **Sample Output**
+- **출력 예시**
 ```t
-# Sample Output for IAM Service Account creation
+# IAM Service Account 생성 출력 예시
 Kalyans-MacBook-Pro:08-01-Load-Balancer-Controller-Install kdaida$ eksctl create iamserviceaccount \
 >   --cluster=eksdemo1 \
 >   --namespace=kube-system \
@@ -216,12 +216,12 @@ Kalyans-MacBook-Pro:08-01-Load-Balancer-Controller-Install kdaida$ eksctl create
 Kalyans-MacBook-Pro:08-01-Load-Balancer-Controller-Install kdaida$ 
 ```
 
-### Step-03-02: Verify using eksctl cli
+### 단계-03-02: eksctl CLI로 확인
 ```t
-# Get IAM Service Account
+# IAM Service Account 조회
 eksctl  get iamserviceaccount --cluster eksdemo1
 
-# Sample Output
+# 출력 예시
 Kalyans-MacBook-Pro:08-01-Load-Balancer-Controller-Install kdaida$ eksctl  get iamserviceaccount --cluster eksdemo1
 2022-02-02 10:23:50 [ℹ]  eksctl version 0.82.0
 2022-02-02 10:23:50 [ℹ]  using region us-east-1
@@ -230,26 +230,26 @@ kube-system	aws-load-balancer-controller	arn:aws:iam::180789647333:role/eksctl-e
 Kalyans-MacBook-Pro:08-01-Load-Balancer-Controller-Install kdaida$ 
 ```
 
-### Step-03-03: Verify CloudFormation Template eksctl created & IAM Role
-- Goto Services -> CloudFormation
-- **CFN Template Name:** eksctl-eksdemo1-addon-iamserviceaccount-kube-system-aws-load-balancer-controller
-- Click on **Resources** tab
-- Click on link in **Physical Id** to open the IAM Role
-- Verify it has **eksctl-eksdemo1-addon-iamserviceaccount-kube-Role1-WFAWGQKTAVLR** associated
+### 단계-03-03: eksctl이 생성한 CloudFormation 템플릿 및 IAM Role 확인
+- Services -> CloudFormation으로 이동
+- **CFN 템플릿 이름:** eksctl-eksdemo1-addon-iamserviceaccount-kube-system-aws-load-balancer-controller
+- **Resources** 탭 클릭
+- **Physical Id**의 링크를 클릭해 IAM Role 열기
+- **eksctl-eksdemo1-addon-iamserviceaccount-kube-Role1-WFAWGQKTAVLR**가 연결되어 있는지 확인
 
-### Step-03-04: Verify k8s Service Account using kubectl
+### 단계-03-04: kubectl로 K8s Service Account 확인
 ```t
-# Verify if any existing service account
+# 기존 서비스 계정 확인
 kubectl get sa -n kube-system
 kubectl get sa aws-load-balancer-controller -n kube-system
-Obseravation:
-1. We should see a new Service account created. 
+관찰 사항:
+1. 새 Service Account가 생성되어 있어야 합니다.
 
-# Describe Service Account aws-load-balancer-controller
+# Service Account aws-load-balancer-controller 상세 확인
 kubectl describe sa aws-load-balancer-controller -n kube-system
 ```
-- **Observation:** You can see that newly created Role ARN is added in `Annotations` confirming that **AWS IAM role bound to a Kubernetes service account**
-- **Output**
+- **관찰:** `Annotations`에 새 Role ARN이 추가된 것을 확인할 수 있으며, 이는 **AWS IAM Role이 Kubernetes Service Account에 바인딩되었음을 의미합니다.**
+- **출력 예시**
 ```t
 ## Sample Output
 Kalyans-MacBook-Pro:08-01-Load-Balancer-Controller-Install kdaida$ kubectl describe sa aws-load-balancer-controller -n kube-system
@@ -264,37 +264,40 @@ Events:              <none>
 Kalyans-MacBook-Pro:08-01-Load-Balancer-Controller-Install kdaida$ 
 ```
 
-## Step-04: Install the AWS Load Balancer Controller using Helm V3 
-### Step-04-01: Install Helm
-- [Install Helm](https://helm.sh/docs/intro/install/) if not installed
-- [Install Helm for AWS EKS](https://docs.aws.amazon.com/eks/latest/userguide/helm.html)
+## 단계-04: Helm V3로 AWS Load Balancer Controller 설치
+### 단계-04-01: Helm 설치
+- 설치되어 있지 않다면 [Helm 설치](https://helm.sh/docs/intro/install/)
+- [AWS EKS용 Helm 설치](https://docs.aws.amazon.com/eks/latest/userguide/helm.html)
 ```t
-# Install Helm (if not installed) MacOS
+# Helm 설치(미설치 시) MacOS
 brew install helm
 
-# Verify Helm version
+# Helm 버전 확인
 helm version
 ```
-### Step-04-02: Install AWS Load Balancer Controller
-- **Important-Note-1:** If you're deploying the controller to Amazon EC2 nodes that have restricted access to the Amazon EC2 instance metadata service (IMDS), or if you're deploying to Fargate, then add the following flags to the command that you run:
+### 단계-04-02: AWS Load Balancer Controller 설치
+- **중요 1:** IMDS 접근이 제한된 Amazon EC2 노드에 컨트롤러를 배포하거나 Fargate에 배포하는 경우 다음 플래그를 추가하세요.
 ```t
 --set region=region-code
 --set vpcId=vpc-xxxxxxxx
 ```
-- **Important-Note-2:** If you're deploying to any Region other than us-west-2, then add the following flag to the command that you run, replacing account and region-code with the values for your region listed in Amazon EKS add-on container image addresses.
-- [Get Region Code and Account info](https://docs.aws.amazon.com/eks/latest/userguide/add-ons-images.html)
+ - **중요 2:** **사용 중단(Deprecated)**
+  - us-west-2 이외의 리전에 배포할 경우 다음 플래그를 추가하고, account 및 region-code를 Amazon EKS 애드온 컨테이너 이미지 주소에 있는 값으로 바꿉니다.
+- [리전 코드 및 계정 정보 확인](https://docs.aws.amazon.com/eks/latest/userguide/add-ons-images.html)
 ```t
 --set image.repository=account.dkr.ecr.region-code.amazonaws.com/amazon/aws-load-balancer-controller
 ```
+- **중요 3:** **새로 추가됨 - 권장**
+  - 리전별 이미지 URI를 더 이상 사용할 필요가 없습니다.
 ```t
-# Add the eks-charts repository.
+# eks-charts 저장소 추가
 helm repo add eks https://aws.github.io/eks-charts
 
-# Update your local repo to make sure that you have the most recent charts.
+# 로컬 저장소 업데이트(최신 차트 확보)
 helm repo update
 
-# Install the AWS Load Balancer Controller.
-## Template
+# AWS Load Balancer Controller 설치
+## 템플릿
 helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
   -n kube-system \
   --set clusterName=<cluster-name> \
@@ -302,9 +305,9 @@ helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
   --set serviceAccount.name=aws-load-balancer-controller \
   --set region=<region-code> \
   --set vpcId=<vpc-xxxxxxxx> \
-  --set image.repository=<account>.dkr.ecr.<region-code>.amazonaws.com/amazon/aws-load-balancer-controller
+  --set image.repository=public.ecr.aws/eks/aws-load-balancer-controller
 
-## Replace Cluster Name, Region Code, VPC ID, Image Repo Account ID and Region Code  
+## 클러스터 이름, 리전 코드, VPC ID, 이미지 리포지토리 계정/리전 코드를 실제 값으로 교체
 helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
   -n kube-system \
   --set clusterName=eksdemo1 \
@@ -312,11 +315,11 @@ helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
   --set serviceAccount.name=aws-load-balancer-controller \
   --set region=us-east-1 \
   --set vpcId=vpc-0165a396e41e292a3 \
-  --set image.repository=602401143452.dkr.ecr.us-east-1.amazonaws.com/amazon/aws-load-balancer-controller
+  --set image.repository=public.ecr.aws/eks/aws-load-balancer-controller
 ```
-- **Sample output for AWS Load Balancer Controller Install steps**
+- **AWS Load Balancer Controller 설치 단계 출력 예시**
 ```t
-## Sample Ouput for AWS Load Balancer Controller Install steps
+## AWS Load Balancer Controller 설치 단계 출력 예시
 Kalyans-MacBook-Pro:08-01-Load-Balancer-Controller-Install kdaida$ helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
 >   -n kube-system \
 >   --set clusterName=eksdemo1 \
@@ -324,7 +327,7 @@ Kalyans-MacBook-Pro:08-01-Load-Balancer-Controller-Install kdaida$ helm install 
 >   --set serviceAccount.name=aws-load-balancer-controller \
 >   --set region=us-east-1 \
 >   --set vpcId=vpc-0570fda59c5aaf192 \
->   --set image.repository=602401143452.dkr.ecr.us-east-1.amazonaws.com/amazon/aws-load-balancer-controller
+>   --set image.repository=public.ecr.aws/eks/aws-load-balancer-controller
 NAME: aws-load-balancer-controller
 LAST DEPLOYED: Wed Feb  2 10:33:57 2022
 NAMESPACE: kube-system
@@ -335,86 +338,86 @@ NOTES:
 AWS Load Balancer controller installed!
 Kalyans-MacBook-Pro:08-01-Load-Balancer-Controller-Install kdaida$ 
 ```
-### Step-04-03: Verify that the controller is installed and Webhook Service created
+### 단계-04-03: 컨트롤러 설치 및 Webhook Service 생성 확인
 ```t
-# Verify that the controller is installed.
+# 컨트롤러 설치 확인
 kubectl -n kube-system get deployment 
 kubectl -n kube-system get deployment aws-load-balancer-controller
 kubectl -n kube-system describe deployment aws-load-balancer-controller
 
-# Sample Output
+# 출력 예시
 Kalyans-MacBook-Pro:08-01-Load-Balancer-Controller-Install kdaida$ kubectl get deployment -n kube-system aws-load-balancer-controller
 NAME                           READY   UP-TO-DATE   AVAILABLE   AGE
 aws-load-balancer-controller   2/2     2            2           27s
 Kalyans-MacBook-Pro:08-01-Load-Balancer-Controller-Install kdaida$ 
 
-# Verify AWS Load Balancer Controller Webhook service created
+# AWS Load Balancer Controller Webhook Service 생성 확인
 kubectl -n kube-system get svc 
 kubectl -n kube-system get svc aws-load-balancer-webhook-service
 kubectl -n kube-system describe svc aws-load-balancer-webhook-service
 
-# Sample Output
+# 출력 예시
 Kalyans-MacBook-Pro:aws-eks-kubernetes-masterclass-internal kdaida$ kubectl -n kube-system get svc aws-load-balancer-webhook-service
 NAME                                TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
 aws-load-balancer-webhook-service   ClusterIP   10.100.53.52   <none>        443/TCP   61m
 Kalyans-MacBook-Pro:aws-eks-kubernetes-masterclass-internal kdaida$ 
 
-# Verify Labels in Service and Selector Labels in Deployment
+# Service/Deployment의 라벨 및 셀렉터 라벨 확인
 kubectl -n kube-system get svc aws-load-balancer-webhook-service -o yaml
 kubectl -n kube-system get deployment aws-load-balancer-controller -o yaml
-Observation:
-1. Verify "spec.selector" label in "aws-load-balancer-webhook-service"
-2. Compare it with "aws-load-balancer-controller" Deployment "spec.selector.matchLabels"
-3. Both values should be same which traffic coming to "aws-load-balancer-webhook-service" on port 443 will be sent to port 9443 on "aws-load-balancer-controller" deployment related pods. 
+관찰 사항:
+1. "aws-load-balancer-webhook-service"의 "spec.selector" 라벨 확인
+2. "aws-load-balancer-controller" Deployment의 "spec.selector.matchLabels"와 비교
+3. 값이 동일해야 하며, 443 포트로 들어오는 트래픽이 "aws-load-balancer-controller" 파드의 9443 포트로 전달됩니다.
 ```
 
-### Step-04-04: Verify AWS Load Balancer Controller Logs
+### 단계-04-04: AWS Load Balancer Controller 로그 확인
 ```t
-# List Pods
+# 파드 목록
 kubectl get pods -n kube-system
 
-# Review logs for AWS LB Controller POD-1
+# AWS LB Controller 파드-1 로그 확인
 kubectl -n kube-system logs -f <POD-NAME> 
 kubectl -n kube-system logs -f  aws-load-balancer-controller-86b598cbd6-5pjfk
 
-# Review logs for AWS LB Controller POD-2
+# AWS LB Controller 파드-2 로그 확인
 kubectl -n kube-system logs -f <POD-NAME> 
 kubectl -n kube-system logs -f aws-load-balancer-controller-86b598cbd6-vqqsk
 ```
 
-### Step-04-05: Verify AWS Load Balancer Controller k8s Service Account - Internals 
+### 단계-04-05: AWS Load Balancer Controller K8s Service Account 내부 확인
 ```t
-# List Service Account and its secret
+# Service Account 및 Secret 목록
 kubectl -n kube-system get sa aws-load-balancer-controller
 kubectl -n kube-system get sa aws-load-balancer-controller -o yaml
 kubectl -n kube-system get secret <GET_FROM_PREVIOUS_COMMAND - secrets.name> -o yaml
 kubectl -n kube-system get secret aws-load-balancer-controller-token-5w8th 
 kubectl -n kube-system get secret aws-load-balancer-controller-token-5w8th -o yaml
-## Decoce ca.crt using below two websites
+## 아래 사이트에서 ca.crt 디코딩
 https://www.base64decode.org/
 https://www.sslchecker.com/certdecoder
 
-## Decode token using below two websites
+## 아래 사이트에서 토큰 디코딩
 https://www.base64decode.org/
 https://jwt.io/
-Observation:
-1. Review decoded JWT Token
+관찰 사항:
+1. 디코딩된 JWT 토큰 확인
 
-# List Deployment in YAML format
+# YAML 형식으로 Deployment 확인
 kubectl -n kube-system get deploy aws-load-balancer-controller -o yaml
-Observation:
-1. Verify "spec.template.spec.serviceAccount" and "spec.template.spec.serviceAccountName" in "aws-load-balancer-controller" Deployment
-2. We should find the Service Account Name as "aws-load-balancer-controller"
+관찰 사항:
+1. "aws-load-balancer-controller" Deployment의 "spec.template.spec.serviceAccount" 및 "spec.template.spec.serviceAccountName" 확인
+2. Service Account 이름이 "aws-load-balancer-controller"여야 합니다.
 
-# List Pods in YAML format
+# YAML 형식으로 파드 확인
 kubectl -n kube-system get pods
 kubectl -n kube-system get pod <AWS-Load-Balancer-Controller-POD-NAME> -o yaml
 kubectl -n kube-system get pod aws-load-balancer-controller-65b4f64d6c-h2vh4 -o yaml
-Observation:
-1. Verify "spec.serviceAccount" and "spec.serviceAccountName"
-2. We should find the Service Account Name as "aws-load-balancer-controller"
-3. Verify "spec.volumes". You should find something as below, which is a temporary credentials to access AWS Services
-CHECK-1: Verify "spec.volumes.name = aws-iam-token"
+관찰 사항:
+1. "spec.serviceAccount" 및 "spec.serviceAccountName" 확인
+2. Service Account 이름이 "aws-load-balancer-controller"여야 합니다.
+3. "spec.volumes" 확인. AWS 서비스 접근용 임시 자격 증명이 아래와 같이 있어야 합니다.
+CHECK-1: "spec.volumes.name = aws-iam-token" 확인
   - name: aws-iam-token
     projected:
       defaultMode: 420
@@ -423,41 +426,41 @@ CHECK-1: Verify "spec.volumes.name = aws-iam-token"
           audience: sts.amazonaws.com
           expirationSeconds: 86400
           path: token
-CHECK-2: Verify Volume Mounts
+CHECK-2: Volume Mounts 확인
     volumeMounts:
     - mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
       name: aws-iam-token
       readOnly: true          
-CHECK-3: Verify ENVs whose path name is "token"
+CHECK-3: 경로 이름이 "token"인 환경 변수 확인
     - name: AWS_WEB_IDENTITY_TOKEN_FILE
       value: /var/run/secrets/eks.amazonaws.com/serviceaccount/token          
 ```
 
-### Step-04-06: Verify TLS Certs for AWS Load Balancer Controller - Internals
+### 단계-04-06: AWS Load Balancer Controller TLS 인증서 내부 확인
 ```t
-# List aws-load-balancer-tls secret 
+# aws-load-balancer-tls secret 목록
 kubectl -n kube-system get secret aws-load-balancer-tls -o yaml
 
-# Verify the ca.crt and tls.crt in below websites
+# 아래 사이트에서 ca.crt 및 tls.crt 확인
 https://www.base64decode.org/
 https://www.sslchecker.com/certdecoder
 
-# Make a note of Common Name and SAN from above 
+# 위에서 Common Name 및 SAN 기록
 Common Name: aws-load-balancer-controller
 SAN: aws-load-balancer-webhook-service.kube-system, aws-load-balancer-webhook-service.kube-system.svc
 
-# List Pods in YAML format
+# YAML 형식으로 파드 확인
 kubectl -n kube-system get pods
 kubectl -n kube-system get pod <AWS-Load-Balancer-Controller-POD-NAME> -o yaml
 kubectl -n kube-system get pod aws-load-balancer-controller-65b4f64d6c-h2vh4 -o yaml
-Observation:
-1. Verify how the secret is mounted in AWS Load Balancer Controller Pod
-CHECK-2: Verify Volume Mounts
+관찰 사항:
+1. AWS Load Balancer Controller 파드에서 secret이 마운트된 방식 확인
+CHECK-2: Volume Mounts 확인
     volumeMounts:
     - mountPath: /tmp/k8s-webhook-server/serving-certs
       name: cert
       readOnly: true
-CHECK-3: Verify Volumes
+CHECK-3: Volumes 확인
   volumes:
   - name: cert
     secret:
@@ -465,26 +468,26 @@ CHECK-3: Verify Volumes
       secretName: aws-load-balancer-tls
 ```
 
-### Step-04-07: UNINSTALL AWS Load Balancer Controller using Helm Command (Information Purpose - SHOULD NOT EXECUTE THIS COMMAND)
-- This step should not be implemented.
-- This is just put it here for us to know how to uninstall aws load balancer controller from EKS Cluster
+### 단계-04-07: Helm 명령으로 AWS Load Balancer Controller 제거(정보용 - 실행 금지)
+- 이 단계는 실행하지 않습니다.
+- EKS 클러스터에서 aws load balancer controller를 제거하는 방법을 참고용으로만 제공합니다.
 ```t
-# Uninstall AWS Load Balancer Controller
+# AWS Load Balancer Controller 제거
 helm uninstall aws-load-balancer-controller -n kube-system 
 ```
 
 
 
-## Step-05: Ingress Class Concept
-- Understand what is Ingress Class 
-- Understand how it overrides the default deprecated annotation `#kubernetes.io/ingress.class: "alb"`
-- [Ingress Class Documentation Reference](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress/ingress_class/)
-- [Different Ingress Controllers available today](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/)
+## 단계-05: Ingress Class 개념
+- Ingress Class가 무엇인지 이해합니다.
+- 기본(Deprecated) 애노테이션 `#kubernetes.io/ingress.class: "alb"`를 어떻게 대체하는지 이해합니다.
+- [Ingress Class 문서 참고](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress/ingress_class/)
+- [현재 사용 가능한 다양한 Ingress 컨트롤러](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/)
 
 
-## Step-06: Review IngressClass Kubernetes Manifest
-- **File Location:** `08-01-Load-Balancer-Controller-Install/kube-manifests/01-ingressclass-resource.yaml`
-- Understand in detail about annotation `ingressclass.kubernetes.io/is-default-class: "true"`
+## 단계-06: IngressClass Kubernetes 매니페스트 검토
+- **파일 위치:** `08-01-Load-Balancer-Controller-Install/kube-manifests/01-ingressclass-resource.yaml`
+- `ingressclass.kubernetes.io/is-default-class: "true"` 애노테이션을 상세히 이해합니다.
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: IngressClass
@@ -495,33 +498,30 @@ metadata:
 spec:
   controller: ingress.k8s.aws/alb
 
-## Additional Note
-# 1. You can mark a particular IngressClass as the default for your cluster. 
-# 2. Setting the ingressclass.kubernetes.io/is-default-class annotation to true on an IngressClass resource will ensure that new Ingresses without an ingressClassName field specified will be assigned this default IngressClass.  
-# 3. Reference: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.3/guide/ingress/ingress_class/
+## 추가 참고
+# 1. 특정 IngressClass를 클러스터의 기본으로 지정할 수 있습니다.
+# 2. IngressClass 리소스에 ingressclass.kubernetes.io/is-default-class 애노테이션을 true로 설정하면, ingressClassName이 없는 새 Ingress가 기본 IngressClass에 할당됩니다.
+# 3. 참고: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.3/guide/ingress/ingress_class/
 ```
 
-## Step-07: Create IngressClass Resource
+## 단계-07: IngressClass 리소스 생성
 ```t
-# Navigate to Directory
+# 디렉터리 이동
 cd 08-01-Load-Balancer-Controller-Install
 
-# Create IngressClass Resource
+# IngressClass 리소스 생성
 kubectl apply -f kube-manifests
 
-# Verify IngressClass Resource
+# IngressClass 리소스 확인
 kubectl get ingressclass
 
-# Describe IngressClass Resource
+# IngressClass 리소스 상세 확인
 kubectl describe ingressclass my-aws-ingress-class
 ```
 
-## References
+## 참고 자료
 - [AWS Load Balancer Controller Install](https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html)
 - [ECR Repository per region](https://docs.aws.amazon.com/eks/latest/userguide/add-ons-images.html)
-
-
-
 
 
 

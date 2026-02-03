@@ -1,7 +1,7 @@
-# User Management Microservice
+# 사용자 관리 마이크로서비스
 
-## X-Ray Enablement
-### Change-1: pom.xml
+## X-Ray 활성화
+### 변경-1: pom.xml
 ```xml
 		<!--  AWS X-Ray -->			
 		<dependency>
@@ -11,7 +11,7 @@
 		</dependency>
 ```
 
-### Change-2: AwsXrayConfig.java
+### 변경-2: AwsXrayConfig.java
 ```java
 package com.stacksimplify.restservices.xray;
 import javax.servlet.Filter;
@@ -30,7 +30,7 @@ public class AwsXrayConfig {
 
 ```
 
-### Change-3: XRayInspector.java
+### 변경-3: XRayInspector.java
 ```java
 import java.util.Map;
 
@@ -60,7 +60,7 @@ public class XRayInspector extends AbstractXRayInterceptor  {
 
 ```
 
-### Change-4: Update @XRayEnabled in Controllers
+### 변경-4: 컨트롤러에 @XRayEnabled 추가
 ```java
 @RestController
 @XRayEnabled

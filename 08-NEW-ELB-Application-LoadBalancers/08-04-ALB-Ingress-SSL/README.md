@@ -1,38 +1,38 @@
 ---
 title: AWS Load Balancer Ingress SSL
-description: Learn AWS Load Balancer Controller - Ingress SSL
+description: AWS Load Balancer Controller - Ingress SSL 학습
 ---
 
-## Step-01: Introduction
-- We are going to register a new DNS in AWS Route53
-- We are going to create a SSL certificate 
-- Add Annotations related to SSL Certificate in Ingress manifest
-- Deploy the manifests and test
-- Clean-Up
+## 단계-01: 소개
+- AWS Route53에 새 DNS를 등록합니다.
+- SSL 인증서를 생성합니다.
+- Ingress 매니페스트에 SSL 인증서 관련 애노테이션을 추가합니다.
+- 매니페스트를 배포하고 테스트합니다.
+- 정리합니다.
 
-## Step-02: Pre-requisite - Register a Domain in Route53 (if not exists)
-- Goto Services -> Route53 -> Registered Domains
-- Click on **Register Domain**
-- Provide **desired domain: somedomain.com** and click on **check** (In my case its going to be `stacksimplify.com`)
-- Click on **Add to cart** and click on **Continue**
-- Provide your **Contact Details** and click on **Continue**
-- Enable Automatic Renewal
-- Accept **Terms and Conditions**
-- Click on **Complete Order**
+## 단계-02: 사전 준비 - Route53에 도메인 등록(없다면)
+- Services -> Route53 -> Registered Domains로 이동
+- **Register Domain** 클릭
+- **desired domain: somedomain.com** 입력 후 **check** 클릭(예: `stacksimplify.com`)
+- **Add to cart** 클릭 후 **Continue**
+- **Contact Details** 입력 후 **Continue**
+- Automatic Renewal 활성화
+- **Terms and Conditions** 동의
+- **Complete Order** 클릭
 
-## Step-03: Create a SSL Certificate in Certificate Manager
-- Pre-requisite: You should have a registered domain in Route53 
-- Go to Services -> Certificate Manager -> Create a Certificate
-- Click on **Request a Certificate**
-  - Choose the type of certificate for ACM to provide: Request a public certificate
-  - Add domain names: *.yourdomain.com (in my case it is going to be `*.stacksimplify.com`)
-  - Select a Validation Method: **DNS Validation**
-  - Click on **Confirm & Request**    
+## 단계-03: Certificate Manager에서 SSL 인증서 생성
+- 사전 조건: Route53에 등록된 도메인이 있어야 합니다.
+- Services -> Certificate Manager -> Create a Certificate로 이동
+- **Request a Certificate** 클릭
+  - ACM에서 제공할 인증서 유형 선택: Request a public certificate
+  - 도메인 이름 추가: *.yourdomain.com(예: `*.stacksimplify.com`)
+  - 검증 방법 선택: **DNS Validation**
+  - **Confirm & Request** 클릭
 - **Validation**
-  - Click on **Create record in Route 53**  
-- Wait for 5 to 10 minutes and check the **Validation Status**  
+  - **Create record in Route 53** 클릭
+- 5~10분 대기 후 **Validation Status** 확인
 
-## Step-04: Add annotations related to SSL
+## 단계-04: SSL 관련 애노테이션 추가
 - **04-ALB-Ingress-SSL.yml**
 ```yaml
     ## SSL Settings
@@ -40,52 +40,52 @@ description: Learn AWS Load Balancer Controller - Ingress SSL
     alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:180789647333:certificate/632a3ff6-3f6d-464c-9121-b9d97481a76b
     #alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-1-2017-01 #Optional (Picks default if not used)    
 ```
-## Step-05: Deploy all manifests and test
-### Deploy and Verify
+## 단계-05: 모든 매니페스트 배포 및 테스트
+### 배포 및 확인
 ```t
-# Deploy kube-manifests
+# kube-manifests 배포
 kubectl apply -f kube-manifests/
 
-# Verify Ingress Resource
+# Ingress 리소스 확인
 kubectl get ingress
 
-# Verify Apps
+# 앱 확인
 kubectl get deploy
 kubectl get pods
 
-# Verify NodePort Services
+# NodePort 서비스 확인
 kubectl get svc
 ```
-### Verify Load Balancer & Target Groups
-- Load Balancer -  Listeneres (Verify both 80 & 443) 
-- Load Balancer - Rules (Verify both 80 & 443 listeners) 
-- Target Groups - Group Details (Verify Health check path)
-- Target Groups - Targets (Verify all 3 targets are healthy)
+### Load Balancer 및 Target Groups 확인
+- Load Balancer - Listeners(80과 443 확인)
+- Load Balancer - Rules(80과 443 리스너 모두 확인)
+- Target Groups - Group Details(헬스 체크 경로 확인)
+- Target Groups - Targets(3개 대상 모두 정상인지 확인)
 
-## Step-06: Add DNS in Route53   
-- Go to **Services -> Route 53**
-- Go to **Hosted Zones**
-  - Click on **yourdomain.com** (in my case stacksimplify.com)
-- Create a **Record Set**
+## 단계-06: Route53에 DNS 추가
+- **Services -> Route 53**로 이동
+- **Hosted Zones**로 이동
+  - **yourdomain.com** 클릭(예: stacksimplify.com)
+- **Record Set** 생성
   - **Name:** ssldemo101.stacksimplify.com
   - **Alias:** yes
-  - **Alias Target:** Copy our ALB DNS Name here (Sample: ssl-ingress-551932098.us-east-1.elb.amazonaws.com)
-  - Click on **Create**
+  - **Alias Target:** ALB DNS 이름 복사(예: ssl-ingress-551932098.us-east-1.elb.amazonaws.com)
+  - **Create** 클릭
   
-## Step-07: Access Application using newly registered DNS Name
-- **Access Application**
-- **Important Note:** Instead of `stacksimplify.com` you need to replace with your registered Route53 domain (Refer pre-requisite Step-02)
+## 단계-07: 새로 등록한 DNS 이름으로 애플리케이션 접속
+- **애플리케이션 접속**
+- **중요:** `stacksimplify.com` 대신 Route53에 등록한 도메인으로 바꿔야 합니다(사전 준비 단계-02 참고).
 ```t
-# HTTP URLs
+# HTTP URL
 http://ssldemo101.stacksimplify.com/app1/index.html
 http://ssldemo101.stacksimplify.com/app2/index.html
 http://ssldemo101.stacksimplify.com/
 
-# HTTPS URLs
+# HTTPS URL
 https://ssldemo101.stacksimplify.com/app1/index.html
 https://ssldemo101.stacksimplify.com/app2/index.html
 https://ssldemo101.stacksimplify.com/
 ```
 
-## Annotation Reference
+## 애노테이션 참고 자료
 - [AWS Load Balancer Controller Annotation Reference](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/ingress/annotations/)

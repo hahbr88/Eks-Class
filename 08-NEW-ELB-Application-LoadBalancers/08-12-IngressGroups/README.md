@@ -1,71 +1,71 @@
 ---
-title: AWS Load Balancer Controller - Ingress Groups
-description: Learn AWS Load Balancer Controller - Ingress Groups
+title: AWS Load Balancer Controller - Ingress 그룹
+description: AWS Load Balancer Controller - Ingress 그룹 학습
 ---
 
-## Step-01: Introduction
-- IngressGroup feature enables you to group multiple Ingress resources together. 
-- The controller will automatically merge Ingress rules for all Ingresses within IngressGroup and support them with a single ALB. 
-- In addition, most annotations defined on a Ingress only applies to the paths defined by that Ingress.
-- Demonstrate Ingress Groups concept with two Applications. 
+## 단계-01: 소개
+- IngressGroup 기능은 여러 Ingress 리소스를 그룹으로 묶을 수 있게 해줍니다.
+- 컨트롤러는 IngressGroup 내 모든 Ingress 규칙을 자동으로 병합하여 하나의 ALB로 제공합니다.
+- 또한 대부분의 Ingress 애노테이션은 해당 Ingress에 정의된 경로에만 적용됩니다.
+- 두 개의 애플리케이션으로 Ingress 그룹 개념을 시연합니다.
 
-## Step-02: Review App1 Ingress Manifest - Key Lines
-- **File Name:** `kube-manifests/app1/02-App1-Ingress.yml`
+## 단계-02: App1 Ingress 매니페스트 핵심 라인 검토
+- **파일 이름:** `kube-manifests/app1/02-App1-Ingress.yml`
 ```yaml
     # Ingress Groups
     alb.ingress.kubernetes.io/group.name: myapps.web
     alb.ingress.kubernetes.io/group.order: '10'
 ```
 
-## Step-03: Review App2 Ingress Manifest - Key Lines
-- **File Name:** `kube-manifests/app2/02-App2-Ingress.yml`
+## 단계-03: App2 Ingress 매니페스트 핵심 라인 검토
+- **파일 이름:** `kube-manifests/app2/02-App2-Ingress.yml`
 ```yaml
     # Ingress Groups
     alb.ingress.kubernetes.io/group.name: myapps.web
     alb.ingress.kubernetes.io/group.order: '20'
 ```
 
-## Step-04: Review App3 Ingress Manifest - Key Lines
+## 단계-04: App3 Ingress 매니페스트 핵심 라인 검토
 ```yaml
     # Ingress Groups
     alb.ingress.kubernetes.io/group.name: myapps.web
     alb.ingress.kubernetes.io/group.order: '30'
 ```
 
-## Step-05: Deploy Apps with two Ingress Resources
+## 단계-05: 두 개의 Ingress 리소스로 앱 배포
 ```t
-# Deploy both Apps
+# 두 앱 배포
 kubectl apply -R -f kube-manifests
 
-# Verify Pods
+# 파드 확인
 kubectl get pods
 
-# Verify Ingress
+# Ingress 확인
 kubectl  get ingress
-Observation:
-1. Three Ingress resources will be created with same ADDRESS value
-2. Three Ingress Resources are merged to a single Application Load Balancer as those belong to same Ingress group "myapps.web"
+관찰 사항:
+1. 동일한 ADDRESS 값을 가진 3개의 Ingress 리소스가 생성됩니다.
+2. 동일한 Ingress 그룹 "myapps.web"에 속하므로 3개의 Ingress 리소스가 하나의 ALB로 병합됩니다.
 ```
 
-## Step-06: Verify on AWS Mgmt Console
-- Go to Services -> EC2 -> Load Balancers 
-- Verify Routing Rules for `/app1` and `/app2` and `default backend`
+## 단계-06: AWS 관리 콘솔에서 확인
+- Services -> EC2 -> Load Balancers로 이동
+- `/app1`, `/app2` 및 `default backend` 라우팅 규칙 확인
 
-## Step-07: Verify by accessing in browser
+## 단계-07: 브라우저에서 접속 확인
 ```t
-# Web URLs
+# 웹 URL
 http://ingress-groups-demo601.stacksimplify.com/app1/index.html
 http://ingress-groups-demo601.stacksimplify.com/app2/index.html
 http://ingress-groups-demo601.stacksimplify.com
 ```
 
-## Step-08: Clean-Up
+## 단계-08: 정리
 ```t
-# Delete Apps from k8s cluster
+# K8s 클러스터에서 앱 삭제
 kubectl delete -R -f kube-manifests/
 
-## Verify Route53 Record Set to ensure our DNS records got deleted
-- Go to Route53 -> Hosted Zones -> Records 
-- The below records should be deleted automatically
+## Route53 Record Set 확인( DNS 레코드 삭제 확인 )
+- Route53 -> Hosted Zones -> Records로 이동
+- 아래 레코드가 자동으로 삭제되어야 합니다.
   - ingress-groups-demo601.stacksimplify.com
 ```

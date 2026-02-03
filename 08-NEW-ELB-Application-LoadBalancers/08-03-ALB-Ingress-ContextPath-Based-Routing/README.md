@@ -1,22 +1,22 @@
 ---
-title: AWS Load Balancer Ingress Context Path Based Routing
-description: Learn AWS Load Balancer Controller - Ingress Context Path Based Routing
+title: AWS Load Balancer Ingress 컨텍스트 경로 기반 라우팅
+description: AWS Load Balancer Controller - Ingress 컨텍스트 경로 기반 라우팅 학습
 ---
 
-## Step-01: Introduction
-- Discuss about the Architecture we are going to build as part of this Section
-- We are going to deploy all these 3 apps in kubernetes with context path based routing enabled in Ingress Controller
-  - /app1/* - should go to app1-nginx-nodeport-service
-  - /app2/* - should go to app1-nginx-nodeport-service
-  - /*    - should go to  app3-nginx-nodeport-service
-- As part of this process, this respective annotation `alb.ingress.kubernetes.io/healthcheck-path:` will be moved to respective application NodePort Service. 
-- Only generic settings will be present in Ingress manifest annotations area `04-ALB-Ingress-ContextPath-Based-Routing.yml`  
+## 단계-01: 소개
+- 이 섹션에서 구축할 아키텍처를 논의합니다.
+- Ingress Controller에서 컨텍스트 경로 기반 라우팅을 활성화해 Kubernetes에 3개 앱을 배포합니다.
+  - /app1/* - app1-nginx-nodeport-service로 라우팅
+  - /app2/* - app1-nginx-nodeport-service로 라우팅
+  - /*    - app3-nginx-nodeport-service로 라우팅
+- 이 과정에서 `alb.ingress.kubernetes.io/healthcheck-path:` 애노테이션을 각 앱의 NodePort Service로 이동합니다.
+- `04-ALB-Ingress-ContextPath-Based-Routing.yml`의 Ingress 매니페스트 애노테이션에는 공통 설정만 유지합니다.
 
 
-## Step-02: Review Nginx App1, App2 & App3 Deployment & Service
-- Differences for all 3 apps will be only two fields from kubernetes manifests perspective and their naming conventions
-  - **Kubernetes Deployment:** Container Image name
-  - **Kubernetes Node Port Service:** Health check URL path 
+## 단계-02: Nginx App1, App2, App3 Deployment 및 Service 검토
+- 3개 앱의 차이는 Kubernetes 매니페스트 관점에서 2개 필드와 네이밍 컨벤션뿐입니다.
+  - **Kubernetes Deployment:** 컨테이너 이미지 이름
+  - **Kubernetes Node Port Service:** 헬스 체크 URL 경로
 - **App1 Nginx: 01-Nginx-App1-Deployment-and-NodePortService.yml**
   - **image:** stacksimplify/kube-nginxapp1:1.0.0
   - **Annotation:** alb.ingress.kubernetes.io/healthcheck-path: /app1/index.html
@@ -29,7 +29,7 @@ description: Learn AWS Load Balancer Controller - Ingress Context Path Based Rou
 
 
 
-## Step-03: Create ALB Ingress Context path based Routing Kubernetes manifest
+## 단계-03: ALB Ingress 컨텍스트 경로 기반 라우팅 매니페스트 생성
 - **04-ALB-Ingress-ContextPath-Based-Routing.yml**
 ```yaml
 # Annotations Reference: https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress/annotations/
@@ -79,51 +79,51 @@ spec:
                 port: 
                   number: 80              
 
-# Important Note-1: In path based routing order is very important, if we are going to use  "/*", try to use it at the end of all rules.                                        
+# 중요-1: 경로 기반 라우팅에서는 순서가 매우 중요합니다. "/*"를 사용할 경우 모든 규칙의 마지막에 배치하세요.
                         
-# 1. If  "spec.ingressClassName: my-aws-ingress-class" not specified, will reference default ingress class on this kubernetes cluster
-# 2. Default Ingress class is nothing but for which ingress class we have the annotation `ingressclass.kubernetes.io/is-default-class: "true"`                      
+# 1. "spec.ingressClassName: my-aws-ingress-class"가 지정되지 않으면 이 쿠버네티스 클러스터의 기본 ingress class를 참조합니다.
+# 2. 기본 Ingress class는 `ingressclass.kubernetes.io/is-default-class: "true"` 애노테이션이 있는 ingress class입니다.
 ```
 
-## Step-04: Deploy all manifests and test
+## 단계-04: 모든 매니페스트 배포 및 테스트
 ```t
-# Deploy Kubernetes manifests
+# Kubernetes 매니페스트 배포
 kubectl apply -f kube-manifests/
 
-# List Pods
+# 파드 목록
 kubectl get pods
 
-# List Services
+# 서비스 목록
 kubectl get svc
 
-# List Ingress Load Balancers
+# Ingress 로드 밸런서 목록
 kubectl get ingress
 
-# Describe Ingress and view Rules
+# Ingress 상세 확인 및 규칙 보기
 kubectl describe ingress ingress-cpr-demo
 
-# Verify AWS Load Balancer Controller logs
+# AWS Load Balancer Controller 로그 확인
 kubectl -n kube-system  get pods 
 kubectl -n kube-system logs -f aws-load-balancer-controller-794b7844dd-8hk7n 
 ```
 
-## Step-05: Verify Application Load Balancer on AWS Management Console**
-- Verify Load Balancer
-    - In Listeners Tab, click on **View/Edit Rules** under Rules
-- Verify Target Groups
-    - GroupD Details
-    - Targets: Ensure they are healthy
-    - Verify Health check path
-    - Verify all 3 targets are healthy)
+## 단계-05: AWS 관리 콘솔에서 Application Load Balancer 확인
+- 로드 밸런서 확인
+    - Listeners 탭에서 Rules 아래 **View/Edit Rules** 클릭
+- Target Groups 확인
+    - GroupD Details 확인
+    - Targets: 정상(Healthy) 상태 확인
+    - 헬스 체크 경로 확인
+    - 3개 대상이 모두 정상인지 확인
 ```t
-# Access Application
+# 애플리케이션 접속
 http://<ALB-DNS-URL>/app1/index.html
 http://<ALB-DNS-URL>/app2/index.html
 http://<ALB-DNS-URL>/
 ```
 
-## Step-06: Test Order in Context path based routing
-### Step-0-01: Move Root Context Path to top
+## 단계-06: 컨텍스트 경로 기반 라우팅의 순서 테스트
+### 단계-06-01: 루트 컨텍스트 경로를 상단으로 이동
 - **File:** 04-ALB-Ingress-ContextPath-Based-Routing.yml
 ```yaml
   ingressClassName: my-aws-ingress-class   # Ingress Class                  
@@ -152,18 +152,18 @@ http://<ALB-DNS-URL>/
                 port: 
                   number: 80
 ```
-### Step-06-02: Deploy Changes and Verify
+### 단계-06-02: 변경 사항 배포 및 확인
 ```t
-# Deploy Changes
+# 변경 사항 배포
 kubectl apply -f kube-manifests/
 
-# Access Application (Open in new incognito window)
+# 애플리케이션 접속(새 시크릿 창에서 열기)
 http://<ALB-DNS-URL>/app1/index.html  -- SHOULD FAIL
 http://<ALB-DNS-URL>/app2/index.html  -- SHOULD FAIL
 http://<ALB-DNS-URL>/  - SHOULD PASS
 ```
 
-## Step-07: Roll back changes in 04-ALB-Ingress-ContextPath-Based-Routing.yml
+## 단계-07: 04-ALB-Ingress-ContextPath-Based-Routing.yml 변경 사항 롤백
 ```yaml
 spec:
   ingressClassName: my-aws-ingress-class   # Ingress Class                  
@@ -193,8 +193,8 @@ spec:
                   number: 80              
 ```
 
-## Step-08: Clean Up
+## 단계-08: 정리
 ```t
-# Clean-Up
+# 정리
 kubectl delete -f kube-manifests/
 ```
