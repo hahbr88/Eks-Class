@@ -88,7 +88,9 @@ Error: failed to create nodegroups for cluster "eksdemo3"
 
 Resource handler returned message: "Volume of size 10GB is smaller than snapshot 'snap-00d5f67a6dbba0b5f', expect size >= 20GB (Service: Eks, Status Code: 400, Request ID: 976c48ac-3ee4-4bc9-9e04-b9658090dc57) (SDK Attempt Count: 1)" (RequestToken: a0f38587-31f9-4ffe-18e4-9accbc11083b, HandlerErrorCode: InvalidRequest)
 ```
-
+---
+### console 에서 노드 IAM 역할 권한 보기
+![alt text](image-1.png)
 
 
 ## Step-05: 클러스터 및 노드 확인
