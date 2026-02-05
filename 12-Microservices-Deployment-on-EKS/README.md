@@ -43,6 +43,206 @@ kubectl get pods
 ### SMTP 자격 증명
 - Services -> Simple Email Service 이동
 - SMTP Settings --> Create My SMTP Credentials
+
+![alt text](image.png)
+
+---
+# AWS CLI로 SMTP(Simple Mail Transfer Protocol) 설정 (Amazon SES 기준)
+
+AWS에서 “SMTP 설정을 AWS CLI로” 한다는 건 보통 **Amazon SES에서 SMTP로 메일을 보내기 위한 준비**(발신자/도메인 검증 → 권한/IAM → SMTP 비밀번호 생성 → 앱/서버 설정)까지를 의미합니다.
+
+---
+
+## 0) 전제
+
+- SMTP 서버는 보통 **Amazon SES(Simple Email Service)** 를 사용합니다.
+- SES는 **리전별**로 동작하니(예: `ap-northeast-2`) 한 리전으로 통일하세요.
+- 메일 발송 애플리케이션(서버)이 **587(TLS/STARTTLS)** 또는 **465(SSL/TLS)** 로 외부 접속 가능해야 합니다.  
+  (EC2라면 보안그룹/네트워크 ACL/사내 방화벽 체크)
+
+---
+
+## 1) SES 발신자(이메일) 또는 도메인 검증
+
+### A. 이메일 주소 검증(빠르게 테스트할 때)
+
+```bash
+REGION=ap-northeast-2
+aws sesv2 create-email-identity \
+  --region "$REGION" \
+  --email-identity "no-reply@example.com"
+```
+
+- 해당 이메일로 검증 메일이 발송됩니다. 링크 클릭 시 검증 완료.
+
+### B. 도메인 검증(운영 권장)
+
+```bash
+REGION=ap-northeast-2
+aws sesv2 create-email-identity \
+  --region "$REGION" \
+  --email-identity "example.com"
+```
+
+검증 상태 확인:
+
+```bash
+aws sesv2 get-email-identity \
+  --region "$REGION" \
+  --email-identity "example.com"
+```
+
+> 도메인 검증은 **DNS 레코드(TXT/CNAME)** 추가가 필요합니다.  
+> `get-email-identity` 결과에 나오는 값(토큰/레코드)을 DNS에 반영해야 완료됩니다.
+
+---
+
+## 2) (권장) DKIM / SPF / DMARC 설정
+
+- DKIM: `create-email-identity` 후 반환/조회되는 DKIM CNAME들을 DNS에 등록
+- SPF: 보통 아래를 TXT로 추가
+  - `v=spf1 include:amazonses.com ~all`
+- DMARC: 예시
+  - `_dmarc.example.com TXT "v=DMARC1; p=none; rua=mailto:dmarc@example.com;"`
+
+> 이 단계는 CLI로 “생성”은 하되, 실제 적용은 DNS에 레코드 반영이 필요합니다.
+
+---
+
+## 3) SES 샌드박스 여부 확인 + 운영 전환(필요 시)
+
+샌드박스면 **검증된 주소로만** 발송되거나 제한이 큽니다.
+
+CLI로 송신 한도(일/초) 확인:
+
+```bash
+aws ses get-send-quota --region "$REGION"
+```
+
+> 운영 전환(샌드박스 해제)은 보통 Support Case로 요청합니다. (CLI만으로 즉시 해제되는 형태는 아닙니다.)
+
+---
+
+## 4) SMTP 자격 증명용 IAM 유저 생성 (권한 최소화)
+
+SES SMTP는 “SMTP 전용 계정”이 따로 있는 게 아니라, **IAM Access Key를 기반으로 SMTP 사용자/비밀번호를 파생**합니다.
+
+### A. IAM 유저 생성
+
+```bash
+SMTP_USER=ses-smtp-user
+aws iam create-user --user-name "$SMTP_USER"
+```
+
+### B. 최소 권한 정책 부여 (SendEmail / SendRawEmail)
+
+```bash
+cat > ses-smtp-policy.json <<'JSON'
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowSesSend",
+      "Effect": "Allow",
+      "Action": [
+        "ses:SendEmail",
+        "ses:SendRawEmail"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+JSON
+
+aws iam put-user-policy \
+  --user-name "$SMTP_USER" \
+  --policy-name "AllowSesSend" \
+  --policy-document file://ses-smtp-policy.json
+```
+
+### C. Access Key 발급
+
+```bash
+aws iam create-access-key --user-name "$SMTP_USER"
+```
+
+출력에서 다음을 안전하게 보관하세요(Secret은 재조회 불가):
+
+- `AccessKeyId`
+- `SecretAccessKey`
+
+---
+
+## 5) SecretAccessKey → SMTP Password 변환 (중요)
+
+SES SMTP 비밀번호는 **SecretAccessKey를 HMAC-SHA256으로 변환한 값**입니다.  
+AWS CLI가 자동으로 “SMTP 비번”을 출력하지 않으므로, 아래 스크립트로 생성합니다.
+
+### Python 스크립트 (SMTP Password v4 생성)
+
+```python
+# gen_ses_smtp_password.py
+import base64, hashlib, hmac, sys
+
+# Usage: python gen_ses_smtp_password.py <secret_access_key>
+secret = sys.argv[1].encode("utf-8")
+message = b"SendRawEmail"
+version = b"\x04"
+
+sig = hmac.new(secret, message, hashlib.sha256).digest()
+smtp_password = base64.b64encode(version + sig).decode("utf-8")
+print(smtp_password)
+```
+
+실행:
+
+```bash
+SECRET="(create-access-key에서 받은 SecretAccessKey)"
+python3 gen_ses_smtp_password.py "$SECRET"
+```
+
+- 결과 문자열이 **SMTP 비밀번호**
+- SMTP 사용자명은 `AccessKeyId`
+
+---
+
+## 6) SMTP 엔드포인트/포트
+
+리전에 맞는 SES SMTP 엔드포인트를 사용합니다.
+
+- 서버: `email-smtp.<region>.amazonaws.com`  
+  예: `email-smtp.ap-northeast-2.amazonaws.com`
+- 포트: `587` (STARTTLS 권장) 또는 `465` (TLS)
+- 인증: Username=`AccessKeyId`, Password=`(변환된 SMTP Password)`
+- TLS: 사용(권장)
+
+---
+
+## 7) 빠른 발송 테스트 (swaks 예시)
+
+```bash
+swaks --to you@example.com \
+  --from no-reply@example.com \
+  --server email-smtp.ap-northeast-2.amazonaws.com \
+  --port 587 \
+  --auth LOGIN \
+  --auth-user "$ACCESS_KEY_ID" \
+  --auth-password "$SMTP_PASSWORD" \
+  --tls
+```
+
+---
+
+## 흔한 장애 포인트 체크리스트
+
+- **샌드박스 상태**라서 수신자 제한/거절
+- 도메인 검증/DKIM 미설정으로 스팸 처리
+- 보안그룹/방화벽에서 587/465 outbound 차단 (특히 EC2 환경)
+- IAM 권한 누락 (`ses:SendRawEmail` 권장)
+- 리전 불일치(검증은 `ap-northeast-2`인데 SMTP는 다른 리전 엔드포인트 사용)
+
+---
+
 - **IAM User Name:** 기본 생성된 이름에 microservice 등 식별용 접미사를 붙입니다.
 - 자격 증명을 다운로드하고 아래 환경 변수를 `04-NotificationMicroservice-Deployment.yml`에 설정합니다.
 ```
